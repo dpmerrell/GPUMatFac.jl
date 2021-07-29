@@ -1,6 +1,6 @@
 
 
-export Loss, QuadLoss, LogisticLoss, PoissonLoss
+export Loss, QuadLoss, LogisticLoss, PoissonLoss, NoLoss
 
 abstract type Loss end
 
@@ -98,6 +98,30 @@ function compute_poissonloss_delta!(XY, A)
     XY .= exp.(XY)
     XY .*= -1.0
     XY .+= A
+    return nothing
+end
+
+
+##################################
+# NoLoss (for latent features)
+##################################
+struct NoLoss <: Loss 
+    scale::Number
+end
+
+function evaluate(nl::NoLoss, x, y, a)
+    return 0.0
+end
+
+function grad_x(XY, A)
+
+end
+
+function compute_noloss!(XY,A)
+    return 0.0
+end
+
+function compute_noloss_delta!(XY, A)
     return nothing
 end
 
