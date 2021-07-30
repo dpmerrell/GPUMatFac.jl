@@ -181,3 +181,10 @@ function compute_grad_Y!(grad_Y, X, Y, XY,
 end
 
 
+LOSS_MAP = Dict(["QuadLoss" => QuadLoss,
+                 "LogisticLoss" => LogisticLoss,
+                 "PoissonLoss" => PoissonLoss,
+                 "NoLoss" => NoLoss
+                ])
+
+

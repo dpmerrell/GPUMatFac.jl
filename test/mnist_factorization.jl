@@ -233,7 +233,15 @@ showln("INITIALIZED MODEL")
 # TRAIN MODEL
 showln("ABOUT TO FIT")
 #fit!(model, aug_X; inst_reg_weight=0.1, feat_reg_weight=0.1, max_iter=1000, loss_iter=1, lr=0.5, momentum=0.8, K_opt_X=(k-1), K_opt_Y=k, rel_tol=1e-9)
-fit_line_search!(model, aug_X; inst_reg_weight=0.1, feat_reg_weight=0.1, alpha=0.1, line_search_max_iter=5, grow=1.5, shrink=0.5, c1=1e-4, c2=0.5, max_iter=1000, K_opt_X=(k-1), K_opt_Y=k, rel_tol=1e-6)
+fit_line_search!(model, aug_X; inst_reg_weight=0.1, feat_reg_weight=0.1, alpha=0.1, line_search_max_iter=5, grow=1.5, shrink=0.5, c1=1e-4, c2=0.5, max_iter=1000, K_opt_X=(k-1), K_opt_Y=k, rel_tol=1e-2)#, rel_tol=1e-6)
+
+#####################
+# SAVE MODEL
+save_hdf("mnist_model.hdf", model)
+
+#####################
+# RELOAD MODEL
+model = load_hdf("mnist_model.hdf")
 
 train_labels = convert(Vector{Int64}, train_labels)
 test_labels = convert(Vector{Int64}, test_labels)
