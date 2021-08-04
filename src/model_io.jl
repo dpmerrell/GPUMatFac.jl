@@ -54,7 +54,7 @@ function matfac_from_hdf(hdf_file, path::String)
     # Losses
     loss_names = hdf_file[string(path,"/loss_types")][:] 
     loss_scales = hdf_file[string(path,"/loss_scales")][:] 
-    losses = Loss[LOSS_MAP[lname](lscale) for (lname, lscale) in zip(loss_names, loss_scales)]
+    losses = Loss[loss_map[lname](lscale) for (lname, lscale) in zip(loss_names, loss_scales)]
 
     # Instance regularizers
     inst_reg_gp = hdf_file[string(path, "/inst_reg")]

@@ -187,4 +187,8 @@ LOSS_MAP = Dict(["QuadLoss" => QuadLoss,
                  "NoLoss" => NoLoss
                 ])
 
+function loss_map(loss_str)
+    k = split(loss_str, ".")[end]
+    return LOSS_MAP[k]
+end
 
