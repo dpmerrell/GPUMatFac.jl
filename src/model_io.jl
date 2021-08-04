@@ -1,7 +1,7 @@
 
 using HDF5
 
-export save_hdf, load_hdf 
+export save_hdf, load_hdf
 
 function save_hdf(hdf_file_path, model; group_name::String="")
     h5open(hdf_file_path, "w") do file
@@ -11,7 +11,7 @@ end
 
 function load_hdf(hdf_file_path; group_name::String="")
     model = h5open(hdf_file_path, "r") do file
-        model_from_hdf(file, group_name)
+        matfac_from_hdf(file, group_name)
     end
     return model
 end
@@ -46,7 +46,7 @@ function to_hdf(hdf_file, path::String, model::MatFacModel)
 end
 
 
-function model_from_hdf(hdf_file, path::String)
+function matfac_from_hdf(hdf_file, path::String)
     # Factors
     X = hdf_file[string(path,"/X")][:,:]
     Y = hdf_file[string(path,"/Y")][:,:]

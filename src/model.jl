@@ -5,10 +5,10 @@ export MatFacModel
 
 mutable struct MatFacModel
 
-    X::AbstractMatrix      # KxM "instance factor" matrix
-    Y::AbstractMatrix      # KxN "feature factor" matrix
+    X::AbstractMatrix            # KxM "instance factor" matrix
+    Y::AbstractMatrix            # KxN "feature factor" matrix
 
-    losses::AbstractVector         # N-dim vector of losses; one per feature
+    losses::AbstractVector       # N-dim vector of losses; one per feature
     
     instance_reg_mats::AbstractVector{AbstractMatrix}  # K x (M x M)
     feature_reg_mats::AbstractVector{AbstractMatrix}  # K x (N x N)
