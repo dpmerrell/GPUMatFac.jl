@@ -5,14 +5,25 @@ import ScikitLearnBase: fit!
 export fit!, fit_line_search!
 
 
-function fit!(model::MatFacModel, A::AbstractMatrix;
-              inst_reg_weight::Real=1.0, feat_reg_weight::Real=1.0,
-              max_iter::Integer=100, 
-              lr::Real=0.001, momentum::Real=0.5,
-              abs_tol::Real=1e-3, rel_tol::Real=1e-7,
-              loss_iter::Integer=10, 
-              K_opt_X::Union{Nothing,Integer}=nothing, 
-              K_opt_Y::Union{Nothing,Integer}=nothing)
+function fit!(model::MatFacModel, A::AbstractMatrix; method="nesterov", kwargs...)
+
+    if method == "nesterov"
+        fit_nesterov!(model, A; kwargs...)
+    elseif method == "line_search"
+        fit_line_search!(model, A; kwargs...)
+    end
+
+end
+
+
+function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
+                       inst_reg_weight::Real=1.0, feat_reg_weight::Real=1.0,
+                       max_iter::Integer=100, 
+                       lr::Real=0.001, momentum::Real=0.5,
+                       abs_tol::Real=1e-3, rel_tol::Real=1e-7,
+                       loss_iter::Integer=10, 
+                       K_opt_X::Union{Nothing,Integer}=nothing, 
+                       K_opt_Y::Union{Nothing,Integer}=nothing)
 
     # Setup
     iter = 0
