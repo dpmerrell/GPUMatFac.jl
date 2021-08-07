@@ -8,7 +8,9 @@ export fit!
 function fit!(model::MatFacModel, A::AbstractMatrix;
               inst_reg_weight=1.0, feat_reg_weight=1.0,
               max_iter::Int=100, lr::Float64=0.001, 
-              abs_tol::Float64=1e-6, rel_tol::Float64=1e-5)
+              abs_tol::Float64=1e-6, rel_tol::Float64=1e-5, 
+              K_opt_X::Union{Nothing,Integer}=nothing, 
+              K_opt_Y::Union{Nothing,Integer}=nothing)
 
     # Setup
     loss = Inf
@@ -17,6 +19,17 @@ function fit!(model::MatFacModel, A::AbstractMatrix;
     M = size(A,1)
     N = size(A,2)
     K = size(model.X, 1)
+
+    # Which dimensions of each factor
+    # actually need to be optimized... 
+    if K_opt_X == nothing
+        K_opt_X = K
+    end
+    if K_opt_Y == nothing
+        K_opt_Y = K
+    end
+    @assert K_opt_X <= K
+    @assert K_opt_Y <= K
 
     # graph coloring
     x_union_graph = graph_union(model.instance_reg_mats)
@@ -34,20 +47,20 @@ function fit!(model::MatFacModel, A::AbstractMatrix;
             Threads.@threads for i in x_color
 
                 # Accumulate loss gradients
-                g = zeros(K)
+                g = zeros(K_opt_X)
                 #X_view = view(model.X,:,i)
                 xtY = BLAS.gemv('T', model.Y, model.X[:,i])
                 for j=1:N
                     if !isnan(A[i,j])
-                        accum_grad_x!(g, model.losses[j], model.Y[:,j], xtY[j], A[i,j])
+                        accum_grad_x!(g, model.losses[j], model.Y[1:K_opt_X,j], xtY[j], A[i,j])
                     end 
                 end
                 # Add regularizer gradient
-                g += inst_reg_weight .* reg_grad(model.X, i, model.instance_reg_mats)
+                g += inst_reg_weight .* reg_grad(model.X, i, model.instance_reg_mats, K_opt_X)
 
                 # Update with gradient
 
-                model.X[:,i] -= lr.*g
+                model.X[1:K_opt_X,i] -= lr.*g
             end # i loop
         end # x_color loop
 
@@ -57,16 +70,16 @@ function fit!(model::MatFacModel, A::AbstractMatrix;
             Threads.@threads for j in y_color
                 loss_fn = model.losses[j]
                 # Accumulate loss gradients
-                g = zeros(K)
+                g = zeros(K_opt_Y)
                 #Y_view = view(model.Y,:,j)
                 Xty = BLAS.gemv('T', model.X, model.Y[:,j])
                 for i=1:M
                     if !isnan(A[i,j])
-                        accum_grad_y!(g, loss_fn, model.X[:,i], Xty[i], A[i,j])
+                        accum_grad_y!(g, loss_fn, model.X[1:K_opt_Y,i], Xty[i], A[i,j])
                     end
                 end
                 # Add regularizer gradient
-                g += feat_reg_weight .* reg_grad(model.Y, j, model.feature_reg_mats)
+                g += feat_reg_weight .* reg_grad(model.Y, j, model.feature_reg_mats, K_opt_Y)
 
                 # Update with gradient
                 model.Y[:,j] -= lr.*g
