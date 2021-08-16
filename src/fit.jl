@@ -16,6 +16,7 @@ function fit!(model::MatFacModel, A::AbstractMatrix;
 
     M = size(A,1)
     N = size(A,2)
+    println(string("DATA MATRIX: ", M, " x ", N)
     K = size(model.X, 1)
 
     # graph coloring
