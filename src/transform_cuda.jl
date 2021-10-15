@@ -107,7 +107,7 @@ function transform(model::MatFacModel, A::AbstractMatrix;
         end
     end
     # Convert regularizers to CuSparse matrices
-    inst_reg_mats_d = [CuSparseMatrixCSC{Float32}(mat .* inst_reg_weight) for mat in new_inst_reg_mats]
+    inst_reg_mats_d = [CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}(mat .* inst_reg_weight) for mat in new_inst_reg_mats]
 
     # Arrays for holding gradients and velocities
     grad_X_temp = CUDA.zeros(Float32, (K_opt_X, M_comb))

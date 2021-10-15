@@ -27,6 +27,17 @@ function to_hdf(hdf_file, path::String, model::MatFacModel)
     write(hdf_file, string(path,"/X"), model.X)
     write(hdf_file, string(path,"/Y"), model.Y)
 
+    # Offsets
+    write(hdf_file, string(path,"/instance_offset"), model.instance_offset)
+    write(hdf_file, string(path,"/feature_offset"), model.feature_offset)
+
+    # Offset Regularizers 
+    to_hdf(hdf_file, string(path,"/instance_offset_reg"), model.instance_offset_reg)
+    to_hdf(hdf_file, string(path,"/feature_offset_reg"), model.feature_offset_reg)
+
+    # Precisions
+    write(hdf_file, string(path,"/feature_precision"), model.feature_precision)
+
     # Losses
     loss_strs = String[string(typeof(loss)) for loss in model.losses]
     write(hdf_file, string(path, "/loss_types"), loss_strs)
@@ -51,10 +62,21 @@ function matfac_from_hdf(hdf_file, path::String)
     X = hdf_file[string(path,"/X")][:,:]
     Y = hdf_file[string(path,"/Y")][:,:]
 
+    # Offsets
+    instance_offset = hdf_file[string(path,"/instance_offset")][:]
+    feature_offset = hdf_file[string(path,"/feature_offset")][:]
+
+    # Offset Regularizers
+    instance_offset_reg = spmat_from_hdf(hdf_file, "/instance_offset_reg")
+    feature_offset_reg = spmat_from_hdf(hdf_file, "/feature_offset_reg")
+
+    # Precisions
+    feature_precision = hdf_file[string(path,"/feature_precision")][:]
+
     # Losses
     loss_names = hdf_file[string(path,"/loss_types")][:] 
     loss_scales = hdf_file[string(path,"/loss_scales")][:] 
-    losses = Loss[loss_map(lname)(lscale) for (lname, lscale) in zip(loss_names, loss_scales)]
+    losses = Loss[eval(Meta.parse(lname))(lscale) for (lname, lscale) in zip(loss_names, loss_scales)]
 
     # Instance regularizers
     inst_reg_gp = hdf_file[string(path, "/inst_reg")]
@@ -64,7 +86,9 @@ function matfac_from_hdf(hdf_file, path::String)
     feat_reg_gp = hdf_file[string(path, "/feat_reg")]
     feat_reg_mats = SparseMatrixCSC[spmat_from_hdf(inst_reg_gp, k) for k in sort(keys(feat_reg_gp))]
 
-    return MatFacModel(X, Y, losses, inst_reg_mats, feat_reg_mats) 
+    return MatFacModel(X, Y, instance_offset, instance_offset_reg, 
+                             feature_offset, feature_offset_reg, feature_precision,
+                             inst_reg_mats, feat_reg_mats, losses) 
 end
 
 
