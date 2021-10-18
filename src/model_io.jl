@@ -27,6 +27,12 @@ function to_hdf(hdf_file, path::String, model::MatFacModel)
     write(hdf_file, string(path,"/X"), model.X)
     write(hdf_file, string(path,"/Y"), model.Y)
 
+    # covariate coefficients
+    write(hdf_file, string(path,"/instance_covariate_coeff"), 
+                    model.instance_covariate_coeff)
+    to_hdf(hdf_file, string(path,"/instance_covariate_coeff_reg"),
+                     model.instance_covariate_coeff_reg)
+
     # Offsets
     write(hdf_file, string(path,"/instance_offset"), model.instance_offset)
     write(hdf_file, string(path,"/feature_offset"), model.feature_offset)
@@ -62,6 +68,10 @@ function matfac_from_hdf(hdf_file, path::String)
     X = hdf_file[string(path,"/X")][:,:]
     Y = hdf_file[string(path,"/Y")][:,:]
 
+    # Covariate coefficients
+    covariate_coeff = hdf_file[string(path,"/instance_covariate_coeff")][:,:]
+    covariate_coeff_reg = spmat_from_hdf(hdf_file, "/instance_covariate_coeff_reg")
+
     # Offsets
     instance_offset = hdf_file[string(path,"/instance_offset")][:]
     feature_offset = hdf_file[string(path,"/feature_offset")][:]
@@ -86,9 +96,12 @@ function matfac_from_hdf(hdf_file, path::String)
     feat_reg_gp = hdf_file[string(path, "/feat_reg")]
     feat_reg_mats = SparseMatrixCSC[spmat_from_hdf(inst_reg_gp, k) for k in sort(keys(feat_reg_gp))]
 
-    return MatFacModel(X, Y, instance_offset, instance_offset_reg, 
-                             feature_offset, feature_offset_reg, feature_precision,
-                             inst_reg_mats, feat_reg_mats, losses) 
+    return MatFacModel(X, Y, inst_reg_mats, feat_reg_mats,
+                             instance_offset, instance_offset_reg, 
+                             feature_offset, feature_offset_reg,
+                             feature_precision,
+                             covariate_coeff, covariate_coeff_reg,
+                              losses) 
 end
 
 

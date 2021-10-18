@@ -15,8 +15,9 @@ function fit!(model::MatFacModel, A::AbstractMatrix; method="nesterov", kwargs..
 
 end
 
-function compute_Z!(Z, X, Y, mu, theta)
+function compute_Z!(Z, X, Y, C, beta, mu, theta)
     Z .= transpose(X)*Y
+    Z .+= C*beta
     Z .+= mu
     Z .+= transpose(theta)
 end
@@ -50,6 +51,7 @@ function print_array_summary(array, name)
 end
 
 function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
+                       instance_covariates::Union{Nothing,AbstractMatrix}=nothing,
                        inst_reg_weight::Real=1.0, feat_reg_weight::Real=1.0,
                        a_0_tau::Real=1.0, b_0_tau::Real=1e-3,
                        max_iter::Integer=100, 
@@ -72,10 +74,23 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     lr_row = lr / N
     lr_col = lr / M
 
+    if instance_covariates == nothing
+        instance_covariates = zeros(M,1)
+        instance_covariate_coeff = zeros(1,N)
+    else
+        @assert size(instance_covariates,1) == M
+        instance_covariate_coeff = randn(size(instance_covariates,2), N)
+    end
+
+    covariate_dim = size(instance_covariates, 2)
+
     # Move data and model to the GPU.
     # Float32 is sufficiently precise.
     X_d = CuArray{Float32}(model.X)
     Y_d = CuArray{Float32}(model.Y)
+    beta_d = CuArray{Float32}(instance_covariate_coeff)
+    beta_reg_d = CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}(feat_reg_weight .* model.instance_covariate_coeff_reg)
+
     mu_d = CuArray{Float32}(model.instance_offset)
     mu_reg_d = CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}(inst_reg_weight .* model.instance_offset_reg)
     theta_d = CuArray{Float32}(model.feature_offset)
@@ -83,6 +98,7 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     tau_d = CuArray{Float32}(model.feature_precision)
 
     A_d = CuArray{Float32}(A)
+    C_d = CuArray{Float32}(instance_covariates)
     Z_d = CUDA.zeros(Float32, M, N)
  
     # Some bookkeeping for missing values.
@@ -92,11 +108,7 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     mask_func(x) = isnan(x) ? Float32(0.5) : Float32(x)
     map!(mask_func, A_d, A_d)
 
-    ## Scaling factors for the columns
-    #scales = [loss.scale for loss in model.losses]
-    #feature_scales = CuArray{Float32}(transpose(scales))
-    
-    # Bookkeeping for the loss functions
+    # Bookkeeping for the different noise models/loss functions
     ql_idx = CuVector{Int64}(findall(typeof.(model.losses) .== QuadLoss))
     ll_idx = CuVector{Int64}(findall(typeof.(model.losses) .== LogisticLoss))
     pl_idx = CuVector{Int64}(findall(typeof.(model.losses) .== PoissonLoss))
@@ -124,6 +136,9 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     grad_Y = CUDA.zeros(Float32, (K, N))
     vel_Y = CUDA.zeros(Float32, (K, N))
 
+    grad_beta = CUDA.zeros(Float32, (covariate_dim, N))
+    vel_beta = CUDA.zeros(Float32, (covariate_dim, N))
+
     grad_theta = CUDA.zeros(Float32, N)
     vel_theta = CUDA.zeros(Float32, N)
 
@@ -132,7 +147,7 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
         ################################
         # Update Row quantities (X, mu)
 
-        compute_Z!(Z_d, X_d, Y_d, mu_d, theta_d)
+        compute_Z!(Z_d, X_d, Y_d, C_d, beta_d, mu_d, theta_d)
         Z_d .*= obs_mask
         Z_d .+= missing_mask
 
@@ -148,9 +163,9 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
         mu_d, vel_mu = nesterov_update!(mu_d, vel_mu, grad_mu, momentum, lr_row)
 
         ############################
-        # Update Column quantities (Y, theta, tau)
+        # Update Column quantities (Y, beta, theta, tau)
 
-        compute_Z!(Z_d, X_d, Y_d, mu_d, theta_d)
+        compute_Z!(Z_d, X_d, Y_d, C_d, beta_d, mu_d, theta_d)
         Z_d .*= obs_mask
         Z_d .+= missing_mask
 
@@ -160,6 +175,10 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
                         A_ql_view, A_ll_view, A_pl_view,
                         feat_reg_mats_d)
         Y_d, vel_Y = nesterov_update!(Y_d, vel_Y, grad_Y, momentum, lr_col)
+
+        # Update beta
+        compute_grad_beta!(grad_beta, beta_d, C_d, Z_d, tau_d, beta_reg_d)
+        beta_d, vel_beta = nesterov_update!(beta_d, vel_beta, grad_beta, momentum, lr_col)
 
         # Update theta
         compute_grad_theta!(grad_theta, theta_d, Z_d, tau_d, theta_reg_d) 
@@ -176,12 +195,13 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
         
         if (iter % loss_iter == 0)
             
-            compute_Z!(Z_d, X_d, Y_d, mu_d, theta_d)
+            compute_Z!(Z_d, X_d, Y_d, C_d, beta_d, mu_d, theta_d)
             Z_d .*= obs_mask
             Z_d .+= missing_mask
             
             new_loss = compute_loss!(X_d, Y_d, Z_ql_view, Z_ll_view, Z_pl_view,
                                                A_ql_view, A_ll_view, A_pl_view,
+                                               beta_d, beta_reg_d,
                                                mu_d, mu_reg_d, theta_d, theta_reg_d, 
                                                tau_ql_view, a_0_tau, b_0_tau,
                                                inst_reg_mats_d, feat_reg_mats_d)
@@ -204,6 +224,7 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     # Move model parameters back to CPU
     model.X = Array{Float32}(X_d)
     model.Y = Array{Float32}(Y_d)
+    model.instance_covariate_coeff = Array{Float32}(beta_d)
     model.instance_offset = Array{Float32}(mu_d)
     model.feature_offset = Array{Float32}(theta_d)
     model.feature_precision = Array{Float32}(tau_d)
@@ -229,21 +250,6 @@ function fit_line_search!(model::MatFacModel, A::AbstractMatrix;
     K = size(model.X, 1)
 
     @assert size(model.X,1) == size(model.Y,1)
-
-#    # Distinguish between (1) K, the hidden dimension;
-#    #                     (2) the subsets 1:K_opt_X, 1:K_opt_Y of 1:K that is optimized;
-#    #                     (3) the subset of optimized dims that are regularized.
-#    # The regularized dim is determined by the lists of matrices
-#    # provided during MatFacModel construction.
-#    # K_opt_X, K_opt_Y have default value K.
-#    if K_opt_X == nothing
-#        K_opt_X = K
-#    end
-#    if K_opt_Y == nothing
-#        K_opt_Y = K
-#    end
-#    @assert K_opt_X <= K
-#    @assert K_opt_Y <= K
 
     # Move data and model to the GPU.
     # Float32 is sufficiently precise.

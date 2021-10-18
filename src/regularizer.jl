@@ -39,14 +39,9 @@ function add_mat_reg_grad!(grad_X::CuArray{Float32,2},
     return nothing
 end
 
-function compute_vec_reg_loss(x::CuArray{Float32,1},
+function compute_vec_reg_loss(x::CuArray,
                               reg_mat::AbstractMatrix)
     return 0.5 * dot(x, reg_mat*x)
 end
 
-function add_vec_reg_grad!(grad_x::CuArray{Float32,1},
-                           x::CuArray{Float32,1},
-                           reg_mat::AbstractMatrix)
-    grad_x .+= reg_mat*x
-end
 

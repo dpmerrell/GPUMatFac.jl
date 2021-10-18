@@ -131,12 +131,17 @@ end
 ##################################
 function compute_loss!(X, Y, Z_ql, Z_ll, Z_pl, 
                        A_ql, A_ll, A_pl,
+                       beta, beta_reg,
                        mu, mu_reg, theta, theta_reg, 
                        tau, a_0_tau, b_0_tau,
                        X_reg_mats, Y_reg_mats)
     loss = compute_quadloss!(Z_ql, A_ql, tau)
     loss += compute_logloss!(Z_ll, A_ll)
     loss += compute_poissonloss!(Z_pl, A_pl)
+    
+    for i=1:size(beta,1)
+        loss += 0.5 * dot(beta[i,:], beta_reg*beta[i,:])
+    end
     loss += compute_mat_reg_loss(X, X_reg_mats)
     loss += compute_mat_reg_loss(Y, Y_reg_mats)
     loss += compute_vec_reg_loss(mu, mu_reg)
@@ -192,14 +197,20 @@ function compute_grad_Y!(grad_Y, X, Y, Z,
 end
 
 
+function compute_grad_beta!(grad_beta, beta, C, Z, tau, beta_reg)
+    grad_beta .= (transpose(C)*Z) .* transpose(tau)
+    grad_beta .+= transpose(beta_reg*transpose(beta))
+end
+
+
 function compute_grad_mu!(grad_mu, mu, Z, tau, mu_reg_mat)
     grad_mu .= Z*tau
-    add_vec_reg_grad!(grad_mu, mu, mu_reg_mat)
+    grad_mu .+= mu_reg_mat*mu
 end
 
 function compute_grad_theta!(grad_theta, theta, Z, tau, theta_reg_mat)
    grad_theta .= (sum(Z, dims=1)[1,:] .* tau)
-   add_vec_reg_grad!(grad_theta, theta, theta_reg_mat)
+   grad_theta .+= theta_reg_mat*theta
 end
 
 function update_tau!(tau, Z, a_0, b_0)
