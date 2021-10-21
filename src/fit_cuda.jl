@@ -5,10 +5,10 @@ import ScikitLearnBase: fit!
 export fit!, fit_line_search!
 
 
-function fit!(model::MatFacModel, A::AbstractMatrix; method="nesterov", kwargs...)
+function fit!(model::MatFacModel, A::AbstractMatrix; method="adagrad", kwargs...)
 
-    if method == "nesterov"
-        fit_nesterov!(model, A; kwargs...)
+    if method == "adagrad"
+        fit_adagrad!(model, A; kwargs...)
     elseif method == "line_search"
         fit_line_search!(model, A; kwargs...)
     end
@@ -23,22 +23,14 @@ function compute_Z!(Z, X, Y, C, beta, mu, theta)
 end
 
 
-function nesterov_update!(value, velocity, grad, momentum, lr)
+function adagrad_update!(value, grad, G, lr)
    
-   # scale gradient by learning rate
-   grad .*= lr
-
-   # update velocity
-   velocity .*= momentum
-   velocity .-= grad
-
    # complete value update
-   value .-= grad
+   G .+= (grad.^2.0)
 
-   # take momentum "half-step"
-   value .+= (momentum.*velocity)
-
-   return value, velocity
+   value .-= grad .* (lr ./ sqrt.(G))
+   
+   return value, G 
 
 end
 
@@ -50,12 +42,12 @@ function print_array_summary(array, name)
     println("\tmean:", sum(array)/prod(size(array))) 
 end
 
-function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
+function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                        instance_covariates::Union{Nothing,AbstractMatrix}=nothing,
                        inst_reg_weight::Real=1.0, feat_reg_weight::Real=1.0,
                        a_0_tau::Real=1.0, b_0_tau::Real=1e-3,
-                       max_iter::Integer=100, 
-                       lr::Real=0.1, momentum::Real=0.5,
+                       max_iter::Integer=1000, 
+                       lr::Real=0.01, eps::Real=1e-8,
                        abs_tol::Real=1e-3, rel_tol::Real=1e-7,
                        loss_iter::Integer=10)
 
@@ -71,8 +63,8 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     @assert size(model.X,1) == size(model.Y,1)
 
     lr = Float32(lr)
-    lr_row = lr / N
-    lr_col = lr / M
+    lr_row = lr #/ N
+    lr_col = lr #/ M
 
     if instance_covariates == nothing
         instance_covariates = zeros(M,1)
@@ -126,21 +118,21 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
     inst_reg_mats_d = [CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}(mat .* inst_reg_weight) for mat in model.instance_reg_mats]
     feat_reg_mats_d = [CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}(mat .* feat_reg_weight) for mat in model.feature_reg_mats]
 
-    # Arrays for holding gradients and velocities
+    # Arrays for holding gradients and summed gradients 
     grad_X = CUDA.zeros(Float32, (K, M))
-    vel_X = CUDA.zeros(Float32, (K, M))
+    G_X = CuArray{Float32}(fill(eps, K, M))
 
     grad_mu = CUDA.zeros(Float32, M)
-    vel_mu = CUDA.zeros(Float32, M) 
+    G_mu = CuArray{Float32}(fill(eps, M)) 
     
     grad_Y = CUDA.zeros(Float32, (K, N))
-    vel_Y = CUDA.zeros(Float32, (K, N))
+    G_Y = CuArray{Float32}(fill(eps, K, N))
 
     grad_beta = CUDA.zeros(Float32, (covariate_dim, N))
-    vel_beta = CUDA.zeros(Float32, (covariate_dim, N))
+    G_beta = CuArray{Float32}(fill(eps, covariate_dim, N))
 
     grad_theta = CUDA.zeros(Float32, N)
-    vel_theta = CUDA.zeros(Float32, N)
+    G_theta = CuArray{Float32}(fill(eps, N))
 
     while iter < max_iter 
 
@@ -156,11 +148,11 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
                         Z_ql_view, Z_ll_view, Z_pl_view,
                         A_ql_view, A_ll_view, A_pl_view,
                         inst_reg_mats_d)
-        X_d, vel_X = nesterov_update!(X_d, vel_X, grad_X, momentum, lr_row)
+        X_d, G_X = adagrad_update!(X_d, grad_X, G_X, lr_row)
 
         # Update mu (Reuse the Z-A stored in Z_d)
         compute_grad_mu!(grad_mu, mu_d, Z_d, tau_d, mu_reg_d)
-        mu_d, vel_mu = nesterov_update!(mu_d, vel_mu, grad_mu, momentum, lr_row)
+        mu_d, G_mu = adagrad_update!(mu_d, grad_mu, G_mu, lr_row)
 
         ############################
         # Update Column quantities (Y, beta, theta, tau)
@@ -174,15 +166,15 @@ function fit_nesterov!(model::MatFacModel, A::AbstractMatrix;
                         Z_ql_view, Z_ll_view, Z_pl_view,
                         A_ql_view, A_ll_view, A_pl_view,
                         feat_reg_mats_d)
-        Y_d, vel_Y = nesterov_update!(Y_d, vel_Y, grad_Y, momentum, lr_col)
+        Y_d, G_Y = adagrad_update!(Y_d, grad_Y, G_Y, lr_col)
 
         # Update beta
         compute_grad_beta!(grad_beta, beta_d, C_d, Z_d, tau_d, beta_reg_d)
-        beta_d, vel_beta = nesterov_update!(beta_d, vel_beta, grad_beta, momentum, lr_col)
+        beta_d, G_beta = adagrad_update!(beta_d, grad_beta, G_beta, lr_col)
 
         # Update theta
         compute_grad_theta!(grad_theta, theta_d, Z_d, tau_d, theta_reg_d) 
-        theta_d, vel_theta = nesterov_update!(theta_d, vel_theta, grad_theta, momentum, lr_col)
+        theta_d, G_theta = adagrad_update!(theta_d, grad_theta, G_theta, lr_col)
 
         # Update tau (closed-form exact update)
         update_tau!(tau_ql_view, Z_ql_view, a_0_tau, b_0_tau)

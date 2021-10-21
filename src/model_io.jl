@@ -28,8 +28,10 @@ function to_hdf(hdf_file, path::String, model::MatFacModel)
     write(hdf_file, string(path,"/Y"), model.Y)
 
     # covariate coefficients
-    write(hdf_file, string(path,"/instance_covariate_coeff"), 
-                    model.instance_covariate_coeff)
+    if model.instance_covariate_coeff != nothing
+        write(hdf_file, string(path,"/instance_covariate_coeff"), 
+                        model.instance_covariate_coeff)
+    end
     to_hdf(hdf_file, string(path,"/instance_covariate_coeff_reg"),
                      model.instance_covariate_coeff_reg)
 
@@ -69,7 +71,9 @@ function matfac_from_hdf(hdf_file, path::String)
     Y = hdf_file[string(path,"/Y")][:,:]
 
     # Covariate coefficients
-    covariate_coeff = hdf_file[string(path,"/instance_covariate_coeff")][:,:]
+    if "instance_covariate_coeff" in keys(hdf_file[path])
+        covariate_coeff = hdf_file[string(path,"/instance_covariate_coeff")][:,:]
+    end
     covariate_coeff_reg = spmat_from_hdf(hdf_file, "/instance_covariate_coeff_reg")
 
     # Offsets
@@ -101,7 +105,7 @@ function matfac_from_hdf(hdf_file, path::String)
                              feature_offset, feature_offset_reg,
                              feature_precision,
                              covariate_coeff, covariate_coeff_reg,
-                              losses) 
+                             losses) 
 end
 
 
