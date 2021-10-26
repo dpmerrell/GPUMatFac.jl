@@ -71,7 +71,7 @@ function matfac_from_hdf(hdf_file, path::String)
     Y = hdf_file[string(path,"/Y")][:,:]
 
     # Covariate coefficients
-    if "instance_covariate_coeff" in keys(hdf_file[path])
+    if "instance_covariate_coeff" in keys(hdf_file[string(path,"/")])
         covariate_coeff = hdf_file[string(path,"/instance_covariate_coeff")][:,:]
     end
     covariate_coeff_reg = spmat_from_hdf(hdf_file, string(path,"/instance_covariate_coeff_reg"))

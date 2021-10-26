@@ -180,18 +180,16 @@ precompile(compute_quadloss!, (gpu_mat, gpu_mat, gpu_vec))
 precompile(compute_logloss!, (gpu_mat, gpu_mat))
 precompile(compute_poissonloss!, (gpu_mat, gpu_mat))
 
-precompile(compute_mat_reg_loss, (gpu_mat, Vector{gpu_sparse}))
-precompile(compute_vec_reg_loss, (gpu_vec, gpu_sparse))
 precompile(compute_tau_loss, (gpu_vec, Float32, Float32, Int64))
 
-precompile(compute_loss!(gpu_mat, gpu_mat, 
-                         gpu_mat, gpu_mat, gpu_mat,
-                         gpu_mat, gpu_mat, gpu_mat,
-                         gpu_mat, gpu_sparse, 
-                         gpu_mat, gpu_sparse,
-                         gpu_vec, gpu_sparse, gpu_vec, gpu_sparse, 
-                         gpu_vec, Float32, Float32,
-                         Vector{gpu_sparse}, Vector{gpu_sparse}))
+precompile(compute_loss!, (gpu_mat, gpu_mat, 
+                           gpu_mat, gpu_mat, gpu_mat,
+                           gpu_mat, gpu_mat, gpu_mat,
+                           gpu_mat, gpu_sparse, 
+                           gpu_mat, gpu_sparse,
+                           gpu_vec, gpu_sparse, gpu_vec, gpu_sparse, 
+                           gpu_vec, Float32, Float32,
+                           Vector{gpu_sparse}, Vector{gpu_sparse}))
 
 
 precompile(compute_grad_delta!, (gpu_mat, gpu_mat, gpu_mat, 

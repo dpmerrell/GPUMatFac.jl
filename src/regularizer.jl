@@ -24,3 +24,6 @@ function compute_vec_reg_loss(x::CuArray,
 end
 
 
+precompile(compute_mat_reg_loss, (gpu_mat, Vector{gpu_sparse}))
+precompile(compute_vec_reg_loss, (gpu_vec, gpu_sparse))
+
