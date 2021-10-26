@@ -3,7 +3,7 @@ export impute_values
 
 
 function logistic(x)
-    return 1.0 ./ (1.0 + exp.(-x))
+    return 1.0 ./ (1.0 .+ exp.(-x))
 end
 
 
@@ -31,8 +31,9 @@ end
 
 function apply_link_function(Z::Matrix, model::MatFacModel)
 
-    logistic_idx = (model.losses .<: LogisticLoss)
-    poisson_idx = (model.losses .<: PoissonLoss)
+    type_vec = typeof.(model.losses)
+    logistic_idx = (type_vec .== LogisticLoss)
+    poisson_idx = (type_vec .== PoissonLoss)
 
     Z[:,logistic_idx] .= logistic(Z[:,logistic_idx])
     Z[:,poisson_idx] .= exp.(Z[:,poisson_idx])
