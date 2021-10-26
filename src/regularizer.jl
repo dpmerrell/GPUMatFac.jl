@@ -1,26 +1,5 @@
 
 
-function reg_eval(X, idx, reg_mats)
-    s = 0.0
-    for k=1:size(X,1)
-        s += X[k, idx] * dot(view(reg_mats[k], :, idx), view(X, k, :))
-    end
-    return 0.5*s
-end
-
-
-function reg_grad(X, idx, reg_mats, K_opt)
-    g = zeros(K_opt)
-    for k=1:min(K_opt,length(reg_mats))
-        g[k] = X[k, idx]*reg_mats[k][idx,idx] + dot(view(reg_mats[k], :, idx), view(X, k, :))
-    end
-    return 0.5 .* g
-end
-
-
-#####################################
-# CUDA functions
-
 function compute_mat_reg_loss(X::CuArray{Float32,2}, 
                               reg_mats::AbstractVector)
     s = 0.0

@@ -74,15 +74,15 @@ function matfac_from_hdf(hdf_file, path::String)
     if "instance_covariate_coeff" in keys(hdf_file[path])
         covariate_coeff = hdf_file[string(path,"/instance_covariate_coeff")][:,:]
     end
-    covariate_coeff_reg = spmat_from_hdf(hdf_file, "/instance_covariate_coeff_reg")
+    covariate_coeff_reg = spmat_from_hdf(hdf_file, string(path,"/instance_covariate_coeff_reg"))
 
     # Offsets
     instance_offset = hdf_file[string(path,"/instance_offset")][:]
     feature_offset = hdf_file[string(path,"/feature_offset")][:]
 
     # Offset Regularizers
-    instance_offset_reg = spmat_from_hdf(hdf_file, "/instance_offset_reg")
-    feature_offset_reg = spmat_from_hdf(hdf_file, "/feature_offset_reg")
+    instance_offset_reg = spmat_from_hdf(hdf_file, string(path, "/instance_offset_reg"))
+    feature_offset_reg = spmat_from_hdf(hdf_file, string(path, "/feature_offset_reg"))
 
     # Precisions
     feature_precision = hdf_file[string(path,"/feature_precision")][:]

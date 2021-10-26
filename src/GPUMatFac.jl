@@ -5,17 +5,8 @@ module GPUMatFac
 include("model.jl")
 include("losses.jl")
 include("regularizer.jl")
-include("graph_util.jl")
-include("line_search.jl")
-
-if CUDA.has_cuda()
-    include("fit_cuda.jl")
-    include("transform_cuda.jl")
-else
-    include("fit.jl")
-    include("transform.jl")
-end
-
+include("fit.jl")
+include("transform.jl")
 include("model_io.jl")
 
 BLAS.set_num_threads(1)

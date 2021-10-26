@@ -11,18 +11,6 @@ struct QuadLoss <: Loss
     scale::Number
 end
 
-function evaluate(ql::QuadLoss, x, y, a)
-    return ql.scale * 0.5 * (dot(x,y) - a)^2
-end
-
-function grad_x(ql::QuadLoss, x, y, a)
-    return ql.scale * (dot(x,y) - a) .* y
-end
-
-function grad_y(ql::QuadLoss, x, y, a)
-    return ql.scale * (dot(x,y) - a) .* x
-end
-
 function compute_quadloss!(Z, A, tau)
     return 0.5*sum( (Z - A).^2 .* transpose(tau))
 end
@@ -37,21 +25,6 @@ end
 ###############################
 struct LogisticLoss <: Loss 
     scale::Number
-end
-
-function evaluate(ll::LogisticLoss, x, y, a)
-    z = dot(x,y)
-    return ll.scale * ( log(1.0 + exp(-z)) + (1.0-a)*z )
-end
-
-function accum_grad_x!(g, ll::LogisticLoss, y, xy, a)
-    BLAS.axpy!(ll.scale * ( (1.0-a) - 1.0/(1.0 + exp(xy)) ), y, g)
-    return
-end
-
-function accum_grad_y!(g, ll::LogisticLoss, x, xy, a)
-    BLAS.axpy!(ll.scale * ( (1.0-a) - 1.0/(1.0 + exp(xy)) ), x, g)
-    return 
 end
 
 function compute_logloss!(Z, A)
@@ -77,19 +50,6 @@ struct PoissonLoss <: Loss
     scale::Number
 end
 
-function evaluate(pl::PoissonLoss, x, y, a)
-    z = dot(x,y)
-    return pl.scale * ( a*z - exp(z) )
-end
-
-function grad_x(pl::PoissonLoss, x, y, a)
-    return pl.scale * ( a - exp(dot(x,y)) ) .* y
-end
-
-function grad_y(pl::PoissonLoss, x, y, a)
-    return pl.scale * ( a - exp(dot(x,y)) ) .* x
-end
-
 function compute_poissonloss!(Z, A)
     return sum(1.0.*Z.*A - exp.(1.0.*Z))
 end
@@ -107,14 +67,6 @@ end
 ##################################
 struct NoLoss <: Loss 
     scale::Number
-end
-
-function evaluate(nl::NoLoss, x, y, a)
-    return 0.0
-end
-
-function grad_x(Z, A)
-
 end
 
 function compute_noloss!(Z,A)
@@ -218,3 +170,32 @@ function update_tau!(tau, Z, a_0, b_0)
     tau .= (2.0*a_0 + M)./(2.0*b_0 .+ sum(Z.^2.0, dims=1)[1,:]) 
 end
 
+###########################
+# PRECOMPILE
+gpu_mat = CuArray{Float32,2}
+gpu_vec = CuArray{Float32,1}
+gpu_sparse = CUDA.CUSPARSE.CuSparseMatrixCSC{Float32}
+
+precompile(compute_quadloss!, (gpu_mat, gpu_mat, gpu_vec))
+precompile(compute_logloss!, (gpu_mat, gpu_mat))
+precompile(compute_poissonloss!, (gpu_mat, gpu_mat))
+
+precompile(compute_mat_reg_loss, (gpu_mat, Vector{gpu_sparse}))
+precompile(compute_vec_reg_loss, (gpu_vec, gpu_sparse))
+precompile(compute_tau_loss, (gpu_vec, Float32, Float32, Int64))
+
+precompile(compute_loss!(gpu_mat, gpu_mat, 
+                         gpu_mat, gpu_mat, gpu_mat,
+                         gpu_mat, gpu_mat, gpu_mat,
+                         gpu_mat, gpu_sparse, 
+                         gpu_mat, gpu_sparse,
+                         gpu_vec, gpu_sparse, gpu_vec, gpu_sparse, 
+                         gpu_vec, Float32, Float32,
+                         Vector{gpu_sparse}, Vector{gpu_sparse}))
+
+
+precompile(compute_grad_delta!, (gpu_mat, gpu_mat, gpu_mat, 
+                                 gpu_mat, gpu_mat, gpu_mat))
+precompile(compute_quadloss_delta!, (gpu_mat, gpu_mat))
+precompile(compute_logloss_delta!, (gpu_mat, gpu_mat))
+precompile(compute_poissonloss_delta!, (gpu_mat, gpu_mat))
