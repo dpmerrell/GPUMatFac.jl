@@ -61,6 +61,17 @@ function compute_poissonloss_delta!(Z, A)
     return nothing
 end
 
+##########################################
+## Ternary loss (tailored for CNA data)
+##########################################
+#
+#struct TernaryLoss <: Loss
+#    scale::Number
+#end
+#
+#function compute_ternaryloss!(Z, A, tau)
+#    
+#end
 
 ##################################
 # NoLoss (for latent features)

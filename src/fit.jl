@@ -35,6 +35,18 @@ function adagrad_update!(value, grad, G, lr)
 end
 
 
+function normalize_factors!(X,Y)
+
+    N = size(Y, 2)
+    target_size = N/10.0 # This is kind of arbitrary
+    Y_norms = sqrt.(sum(Y.^2, dims=2))
+
+    multipliers = target_size ./ Y_norms
+    Y .*= multipliers
+    X ./= multipliers
+end
+
+
 function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                       instance_covariates::Union{Nothing,AbstractMatrix}=nothing,
                       inst_reg_weight::Real=1.0, feat_reg_weight::Real=1.0,
@@ -42,7 +54,8 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                       max_iter::Integer=1000, 
                       lr::Real=0.01, eps::Real=1e-8,
                       abs_tol::Real=1e-3, rel_tol::Real=1e-7,
-                      loss_iter::Integer=10)
+                      loss_iter::Integer=10,
+                      normalize_Y::Bool=true)
 
     # Setup
     iter = 0
@@ -206,6 +219,10 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
 
     end # while
 
+    if normalize_Y
+        normalize_factors!(X_d, Y_d)
+    end
+
     # Move model parameters back to CPU
     model.X = Array{Float32}(X_d)
     model.Y = Array{Float32}(Y_d)
@@ -226,8 +243,7 @@ precompile(compute_Z!, (CuArray{Float32,2}, CuArray{Float32,2},
 
 for t in (CuArray{Float32,2}, CuArray{Float32,1})
     precompile(adagrad_update!, (t, t, t, Float32))
-
 end
 
-
+precompile(normalize_factors!, (CuArray{Float32}, CuArray{Float32}))
 
