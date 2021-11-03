@@ -35,10 +35,24 @@ function adagrad_update!(value, grad, G, lr)
 end
 
 
-function normalize_factors!(X,Y)
+function compute_factor_importances(X, Y)
+    X_norms = sqrt.(sum(X.^2, dims=2))
+    Y_norms = sqrt.(sum(Y.^2, dims=2))
+
+    importances = X_norms .* Y_norms
+
+    return reshape(importances, (size(importances,1),))
+end
+
+
+function normalize_factors!(X,Y; target_size=nothing)
 
     N = size(Y, 2)
-    target_size = N/10.0 # This is kind of arbitrary
+
+    if target_size == nothing
+        target_size = N/10.0 # This is kind of arbitrary
+    end
+
     Y_norms = sqrt.(sum(Y.^2, dims=2))
 
     multipliers = target_size ./ Y_norms
@@ -219,6 +233,8 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
 
     end # while
 
+    importances = compute_factor_importances(X_d, Y_d)
+
     if normalize_Y
         normalize_factors!(X_d, Y_d)
     end
@@ -230,6 +246,7 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
     model.instance_offset = Array{Float32}(mu_d)
     model.feature_offset = Array{Float32}(theta_d)
     model.feature_precision = Array{Float32}(tau_d)
+    model.factor_importances = Array{Float32}(importances)
 
     return model 
 end
@@ -246,4 +263,5 @@ for t in (CuArray{Float32,2}, CuArray{Float32,1})
 end
 
 precompile(normalize_factors!, (CuArray{Float32}, CuArray{Float32}))
+precompile(compute_factor_importances, (CuArray{Float32}, CuArray{Float32}))
 

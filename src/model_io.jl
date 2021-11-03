@@ -62,6 +62,8 @@ function to_hdf(hdf_file, path::String, model::MatFacModel)
         to_hdf(hdf_file, string(path, "/feat_reg/mat_", i), regmat)
     end
 
+    write(hdf_file, string(path,"/factor_importances"), model.factor_importances)
+
 end
 
 
@@ -100,12 +102,15 @@ function matfac_from_hdf(hdf_file, path::String)
     feat_reg_gp = hdf_file[string(path, "/feat_reg")]
     feat_reg_mats = SparseMatrixCSC[spmat_from_hdf(inst_reg_gp, k) for k in sort(keys(feat_reg_gp))]
 
+    # Factor importances
+    factor_importances = hdf_file[string(path,"/factor_importances")][:]
+
     return MatFacModel(X, Y, inst_reg_mats, feat_reg_mats,
                              instance_offset, instance_offset_reg, 
                              feature_offset, feature_offset_reg,
                              feature_precision,
                              covariate_coeff, covariate_coeff_reg,
-                             losses) 
+                             losses, factor_importances) 
 end
 
 

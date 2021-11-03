@@ -254,10 +254,13 @@ showln("ABOUT TO FIT")
 fit!(model, aug_X; 
      #instance_covariates=train_covariates, 
      inst_reg_weight=160.0, feat_reg_weight=10.0, 
-     max_iter=100, loss_iter=10, lr=0.1, 
+     max_iter=1000, loss_iter=10, lr=0.1, 
      rel_tol=1e-9, a_0_tau=1.0, b_0_tau=1.0)
 #fit!(model, aug_X; inst_reg_weight=0.1, feat_reg_weight=0.1, max_iter=1000, lr=0.5, rel_tol=1e-9)
 #fit!(model, aug_X; method="line_search", inst_reg_weight=0.1, feat_reg_weight=0.1, alpha=0.1, line_search_max_iter=5, grow=1.5, shrink=0.5, c1=1e-4, c2=0.5, max_iter=1000, rel_tol=1e-6)
+
+println("FACTOR IMPORTANCES:")
+println(model.factor_importances)
 
 #####################
 # SAVE MODEL

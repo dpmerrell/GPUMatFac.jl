@@ -24,6 +24,8 @@ mutable struct MatFacModel
     instance_covariate_coeff_reg::AbstractMatrix
     
     losses::AbstractVector       # N-dim vector of feature-specific losses
+
+    factor_importances::AbstractVector # K-dim vector of factor importances
 end
 
 
@@ -66,6 +68,8 @@ function MatFacModel(instance_reg_mats::AbstractVector,
 
     instance_covariate_coeff = nothing
 
+    factor_importances = zeros(K)
+
     return MatFacModel(X, Y, instance_reg_mats,
                              feature_reg_mats,
                              instance_offset,
@@ -75,7 +79,8 @@ function MatFacModel(instance_reg_mats::AbstractVector,
                              feature_precision,
                              instance_covariate_coeff,
                              instance_covariate_coeff_reg,
-                             losses
+                             losses,
+                             factor_importances
                       )
 end
 
