@@ -67,6 +67,7 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                       a_0_tau::Real=1.0, b_0_tau::Real=1e-3,
                       max_iter::Integer=1000, 
                       lr::Real=0.01, eps::Real=1e-8,
+                      lr_halflife=Inf,
                       abs_tol::Real=1e-3, rel_tol::Real=1e-7,
                       loss_iter::Integer=10,
                       normalize_Y::Bool=true)
@@ -83,8 +84,10 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
     @assert size(model.X,1) == size(model.Y,1)
 
     lr = Float32(lr)
-    lr_row = lr #/ N
-    lr_col = lr #/ M
+    lr_shrink = Float32(1.0)
+    if lr_halflife != Inf
+        lr_shrink = Float32(0.5^(1.0/lr_halflife))
+    end
 
     if instance_covariates == nothing
         instance_covariates = zeros(M,1)
@@ -168,11 +171,11 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                         Z_ql_view, Z_ll_view, Z_pl_view,
                         A_ql_view, A_ll_view, A_pl_view,
                         inst_reg_mats_d)
-        X_d, G_X = adagrad_update!(X_d, grad_X, G_X, lr_row)
+        X_d, G_X = adagrad_update!(X_d, grad_X, G_X, lr)
 
         # Update mu (Reuse the Z-A stored in Z_d)
         compute_grad_mu!(grad_mu, mu_d, Z_d, tau_d, mu_reg_d)
-        mu_d, G_mu = adagrad_update!(mu_d, grad_mu, G_mu, lr_row)
+        mu_d, G_mu = adagrad_update!(mu_d, grad_mu, G_mu, lr)
 
         ############################
         # Update Column quantities (Y, beta, theta, tau)
@@ -186,15 +189,15 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                         Z_ql_view, Z_ll_view, Z_pl_view,
                         A_ql_view, A_ll_view, A_pl_view,
                         feat_reg_mats_d)
-        Y_d, G_Y = adagrad_update!(Y_d, grad_Y, G_Y, lr_col)
+        Y_d, G_Y = adagrad_update!(Y_d, grad_Y, G_Y, lr)
 
         # Update beta
         compute_grad_beta!(grad_beta, beta_d, C_d, Z_d, tau_d, beta_reg_d)
-        beta_d, G_beta = adagrad_update!(beta_d, grad_beta, G_beta, lr_col)
+        beta_d, G_beta = adagrad_update!(beta_d, grad_beta, G_beta, lr)
 
         # Update theta
         compute_grad_theta!(grad_theta, theta_d, Z_d, tau_d, theta_reg_d) 
-        theta_d, G_theta = adagrad_update!(theta_d, grad_theta, G_theta, lr_col)
+        theta_d, G_theta = adagrad_update!(theta_d, grad_theta, G_theta, lr)
 
         # Update tau (closed-form exact update)
         update_tau!(tau_ql_view, Z_ql_view, a_0_tau, b_0_tau)
@@ -230,6 +233,9 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
             end
             cur_loss = new_loss
         end
+
+        # Decrease the learning rate
+        lr *= lr_shrink
 
     end # while
 
