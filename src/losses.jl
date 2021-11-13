@@ -12,7 +12,12 @@ struct QuadLoss <: Loss
 end
 
 function compute_quadloss!(Z, A, tau)
-    return 0.5*sum( (Z - A).^2 .* transpose(tau))
+    if size(Z, 1) == 0
+        loss = 0.0
+    else
+        loss = 0.5*sum( (Z - A).^2 .* transpose(tau))
+    end
+    return loss 
 end
 
 function compute_quadloss_delta!(Z, A)
@@ -28,10 +33,15 @@ struct LogisticLoss <: Loss
 end
 
 function compute_logloss!(Z, A)
-    Z .= exp.(-Z)
-    Z .+= 1.0
-    Z .= 1.0 ./Z
-    return -sum( A .* log.(1e-12 .+ Z) + (1.0 .- A).*log.(1e-12 + 1.0 .- Z) )
+    if size(Z, 1) == 0
+        loss = 0.0
+    else
+        Z .= exp.(-Z)
+        Z .+= 1.0
+        Z .= 1.0 ./Z
+        loss = -sum( A .* log.(1e-12 .+ Z) + (1.0 .- A).*log.(1e-12 + 1.0 .- Z) )
+    end
+    return loss 
 end
 
 
