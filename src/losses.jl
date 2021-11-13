@@ -51,7 +51,12 @@ struct PoissonLoss <: Loss
 end
 
 function compute_poissonloss!(Z, A)
-    return sum(1.0.*Z.*A - exp.(1.0.*Z))
+    if size(Z,2) == 0 
+        loss = 0.0
+    else
+        loss = sum(1.0.*Z.*A - exp.(1.0.*Z))
+    end
+    return loss
 end
 
 function compute_poissonloss_delta!(Z, A)
