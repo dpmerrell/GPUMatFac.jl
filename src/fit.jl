@@ -219,7 +219,8 @@ function fit_adagrad!(model::MatFacModel, A::AbstractMatrix;
                                                beta_d, beta_reg_d,
                                                mu_d, mu_reg_d, theta_d, theta_reg_d, 
                                                tau_ql_view, a_0_tau, b_0_tau,
-                                               inst_reg_mats_d, feat_reg_mats_d)
+                                               inst_reg_mats_d, feat_reg_mats_d;
+                                               verbose=true)
             print_str = string(print_str, "\tLoss: $new_loss")
             println(print_str)
 

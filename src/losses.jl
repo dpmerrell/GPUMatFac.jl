@@ -88,6 +88,11 @@ function compute_noloss_delta!(Z, A)
     return nothing
 end
 
+function vprint(s; verbose=false)
+    if verbose
+        println(s)
+    end
+end
 
 ##################################
 # Other functions
@@ -97,21 +102,31 @@ function compute_loss!(X, Y, Z_ql, Z_ll, Z_pl,
                        beta, beta_reg,
                        mu, mu_reg, theta, theta_reg, 
                        tau, a_0_tau, b_0_tau,
-                       X_reg_mats, Y_reg_mats)
+                       X_reg_mats, Y_reg_mats;
+                       verbose=false)
     loss = compute_quadloss!(Z_ql, A_ql, tau)
+    vprint(string("\tQUAD LOSS: ", loss), verbose=verbose)
     loss += compute_logloss!(Z_ll, A_ll)
+    vprint(string("\tLOGISTIC LOSS: ", loss), verbose=verbose)
     loss += compute_poissonloss!(Z_pl, A_pl)
+    vprint(string("\tPOISSON LOSS: ", loss), verbose=verbose)
     
     for i=1:size(beta,1)
         loss += 0.5 * dot(beta[i,:], beta_reg*beta[i,:])
     end
+    vprint(string("\tBETA LOSS: ", loss), verbose=verbose)
     loss += compute_mat_reg_loss(X, X_reg_mats)
+    vprint(string("\tX REG LOSS: ", loss), verbose=verbose)
     loss += compute_mat_reg_loss(Y, Y_reg_mats)
+    vprint(string("\tY REG LOSS: ", loss), verbose=verbose)
     loss += compute_vec_reg_loss(mu, mu_reg)
+    vprint(string("\tMU REG LOSS: ", loss), verbose=verbose)
     loss += compute_vec_reg_loss(theta, theta_reg)
+    vprint(string("\tTHETA REG LOSS: ", loss), verbose=verbose)
 
     M = size(X,2)
     loss += compute_tau_loss(tau, a_0_tau, b_0_tau, M) 
+    vprint(string("\tTAU LOSS: ", loss), verbose=verbose)
     
     return loss
 end
